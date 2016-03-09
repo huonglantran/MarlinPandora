@@ -47,6 +47,81 @@ PfoCreator::~PfoCreator()
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
+float PfoCreator::FindHitDensityBin(float hitEnergy) const
+{
+  float volume = m_settings.m_cellsize*m_settings.m_cellsize*0.05;
+  float mip2gev = 0.0225;
+  
+  float hitEnergyInMIP = hitEnergy/mip2gev;
+
+  const int NBIN = 12;
+  float lowMIP[NBIN]  = {0.49,  2, 3.5, 5.5,  8, 10, 14, 17, 21, 25, 30, 35};
+  float highMIP[NBIN] = {  2, 3.5, 5.5,   8, 10, 14, 17, 21, 25, 30, 35, 1e6};
+
+  float rho = 0;
+  for (int ibin = 0; ibin < NBIN; ibin++){
+
+    if (hitEnergyInMIP>=lowMIP[ibin] && hitEnergyInMIP<highMIP[ibin]){
+      rho = (lowMIP[ibin]+highMIP[ibin])/2;
+      if (ibin==(NBIN-1))
+	rho = 40;
+    
+      rho *= mip2gev;
+      rho /= volume;
+    }
+  }
+
+  return rho;
+}
+
+float PfoCreator::SCEnergyCorrection(IMPL::ReconstructedParticleImpl *const pPfo) const
+{
+  float PFOenergyEstimation = pPfo->getEnergy();
+
+  float E_SC(0.f);
+
+  float p10 = m_settings.m_SCparameters.at(0);
+  float p11 = m_settings.m_SCparameters.at(1);
+  float p12 = m_settings.m_SCparameters.at(2);
+
+  float p20 = m_settings.m_SCparameters.at(3);
+  float p21 = m_settings.m_SCparameters.at(4);
+  float p22 = m_settings.m_SCparameters.at(5);
+
+  float p30 = m_settings.m_SCparameters.at(6);
+  float p31 = m_settings.m_SCparameters.at(7);
+  float p32 = m_settings.m_SCparameters.at(8);
+
+  float p1 = p10 + p11*PFOenergyEstimation + p12*PFOenergyEstimation*PFOenergyEstimation;
+  float p2 = p20 + p21*PFOenergyEstimation + p22*PFOenergyEstimation*PFOenergyEstimation;
+  float p3 = p30/(p31 + exp(p32*PFOenergyEstimation));
+
+  const EVENT::ClusterVec &clusterVec(pPfo->getClusters());
+  
+  for (EVENT::ClusterVec::const_iterator iter = clusterVec.begin(), iterEnd = clusterVec.end(); iter != iterEnd; ++iter) {
+    const EVENT::CalorimeterHitVec &calorimeterHitVec((*iter)->getCalorimeterHits());
+	  
+    for (EVENT::CalorimeterHitVec::const_iterator hitIter = calorimeterHitVec.begin(), hitIterEnd = calorimeterHitVec.end(); hitIter != hitIterEnd; ++hitIter) {
+      const EVENT::CalorimeterHit *pCalorimeterHit = *hitIter;
+	    
+      const float hitEnergy(pCalorimeterHit->getEnergy());
+      const CHT cht(pCalorimeterHit->getType());
+
+      if (cht.is(CHT::hcal)) {
+	float rho = FindHitDensityBin(hitEnergy);
+	float weight = p1*exp(p2*rho)+p3;
+	E_SC += hitEnergy*weight;	  
+      } else {
+	E_SC += hitEnergy;
+      }
+    }
+  }
+
+  return E_SC;
+}
+
+//------------------------------------------------------------------------------------------------------------------------------------------
+
 pandora::StatusCode PfoCreator::CreateParticleFlowObjects(EVENT::LCEvent *pLCEvent)
 {
     const pandora::PfoList *pPandoraPfoList = NULL;
@@ -409,6 +484,8 @@ void PfoCreator::SetRecoParticlePropertiesFromPFO(const pandora::ParticleFlowObj
     const float momentum[3] = {pPandoraPfo->GetMomentum().GetX(), pPandoraPfo->GetMomentum().GetY(), pPandoraPfo->GetMomentum().GetZ()};
     pReconstructedParticle->setMomentum(momentum);
     pReconstructedParticle->setEnergy(pPandoraPfo->GetEnergy());
+    if ( m_settings.m_applySoftwareCompensation && (pReconstructedParticle->getTracks().empty()) && (pReconstructedParticle->getType()!=22) )
+      pReconstructedParticle->setEnergy(SCEnergyCorrection(pReconstructedParticle));
     pReconstructedParticle->setMass(pPandoraPfo->GetMass());
     pReconstructedParticle->setCharge(pPandoraPfo->GetCharge());
     pReconstructedParticle->setType(pPandoraPfo->GetParticleId());

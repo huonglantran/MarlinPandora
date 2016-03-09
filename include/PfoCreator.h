@@ -42,6 +42,14 @@ public:
         float           m_hadStochasticTerm;                    ///< The stochastic term for Hadronic shower energy resolution
         float           m_emConstantTerm;                       ///< The constant term for EM shower energy resolution
         float           m_hadConstantTerm;                      ///< The constant term for Hadronic shower energy resolution
+	
+
+	//For Software compensation
+	bool            m_applySoftwareCompensation;            ///< The flag used to apply software compensation
+	float           m_cellsize;                             ///< HCAL cell size (in dm)
+	typedef std::vector<float> FloatVector;
+	FloatVector     m_SCparameters;                         ///< Parameters used to determine SC weights
+	
     };
 
     /**
@@ -63,6 +71,9 @@ public:
      *  @param  pLCEvent the lcio event
      */    
     pandora::StatusCode CreateParticleFlowObjects(EVENT::LCEvent *pLCEvent);
+
+    float FindHitDensityBin(float hitEnergy) const;
+    float SCEnergyCorrection(IMPL::ReconstructedParticleImpl *const pPfo) const;
 
 private:
     /**
