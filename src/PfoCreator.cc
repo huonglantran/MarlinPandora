@@ -49,6 +49,7 @@ PfoCreator::~PfoCreator()
 
 float PfoCreator::FindHitDensityBin(float hitEnergy, float cellsize) const
 {
+  cellsize /= 100;
   float volume = cellsize*cellsize*0.05;
   float mip2gev = 0.0225;
   
