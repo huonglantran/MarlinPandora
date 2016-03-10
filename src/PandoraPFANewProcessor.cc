@@ -742,10 +742,6 @@ void PandoraPFANewProcessor::ProcessSteeringFile()
 			       "Choose to apply software compensation to neutral hadrons",
 			       m_pfoCreatorSettings.m_applySoftwareCompensation,
 			       bool(false));
-    registerProcessorParameter("HCalCellSize",
-			       "HCAL cell size (in dm)",
-			       m_pfoCreatorSettings.m_cellsize,
-			       float(0.3));
     registerProcessorParameter("SoftwareCompensationParameters",
 			       "Parameters used to determine SC weights",
 			       m_pfoCreatorSettings.m_SCparameters,

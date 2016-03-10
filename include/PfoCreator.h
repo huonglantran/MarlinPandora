@@ -46,7 +46,6 @@ public:
 
 	//For Software compensation
 	bool            m_applySoftwareCompensation;            ///< The flag used to apply software compensation
-	float           m_cellsize;                             ///< HCAL cell size (in dm)
 	typedef std::vector<float> FloatVector;
 	FloatVector     m_SCparameters;                         ///< Parameters used to determine SC weights
 	
