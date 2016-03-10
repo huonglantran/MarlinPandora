@@ -72,8 +72,8 @@ public:
      */    
     pandora::StatusCode CreateParticleFlowObjects(EVENT::LCEvent *pLCEvent);
 
-    float FindHitDensityBin(float hitEnergy) const;
-    float SCEnergyCorrection(IMPL::ReconstructedParticleImpl *const pPfo) const;
+    float FindHitDensityBin(float hitEnergy, float cellsize) const;
+    float SCEnergyCorrection(const pandora::ParticleFlowObject *const pPfo) const;
 
 private:
     /**

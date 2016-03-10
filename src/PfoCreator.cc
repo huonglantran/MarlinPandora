@@ -47,9 +47,10 @@ PfoCreator::~PfoCreator()
 
 //------------------------------------------------------------------------------------------------------------------------------------------
 
-float PfoCreator::FindHitDensityBin(float hitEnergy) const
+float PfoCreator::FindHitDensityBin(float hitEnergy, float cellsize) const
 {
-  float volume = m_settings.m_cellsize*m_settings.m_cellsize*0.05;
+  //float volume = m_settings.m_cellsize*m_settings.m_cellsize*0.05;
+  float volume = cellsize*cellsize*0.05;
   float mip2gev = 0.0225;
   
   float hitEnergyInMIP = hitEnergy/mip2gev;
@@ -74,9 +75,9 @@ float PfoCreator::FindHitDensityBin(float hitEnergy) const
   return rho;
 }
 
-float PfoCreator::SCEnergyCorrection(IMPL::ReconstructedParticleImpl *const pPfo) const
+float PfoCreator::SCEnergyCorrection(const pandora::ParticleFlowObject *const pPfo) const
 {
-  float PFOenergyEstimation = pPfo->getEnergy();
+  float PFOenergyEstimation = pPfo->GetEnergy();
 
   float E_SC(0.f);
 
@@ -96,27 +97,34 @@ float PfoCreator::SCEnergyCorrection(IMPL::ReconstructedParticleImpl *const pPfo
   float p2 = p20 + p21*PFOenergyEstimation + p22*PFOenergyEstimation*PFOenergyEstimation;
   float p3 = p30/(p31 + exp(p32*PFOenergyEstimation));
 
-  const EVENT::ClusterVec &clusterVec(pPfo->getClusters());
+  const pandora::ClusterList &clusterList(pPfo->GetClusterList());
   
-  for (EVENT::ClusterVec::const_iterator iter = clusterVec.begin(), iterEnd = clusterVec.end(); iter != iterEnd; ++iter) {
-    const EVENT::CalorimeterHitVec &calorimeterHitVec((*iter)->getCalorimeterHits());
+  for (pandora::ClusterList::const_iterator cIter = clusterList.begin(), cIterEnd = clusterList.end(); cIter != cIterEnd; ++cIter)
+    {
+      const pandora::Cluster *const pPandoraCluster(*cIter);
+      pandora::CaloHitList pandoraCaloHitList;
+      pPandoraCluster->GetOrderedCaloHitList().GetCaloHitList(pandoraCaloHitList);
+      
+      for (pandora::CaloHitList::const_iterator hIter = pandoraCaloHitList.begin(), hIterEnd = pandoraCaloHitList.end(); hIter != hIterEnd; ++hIter)
+	{
+	  const pandora::CaloHit *const pPandoraCaloHit(*hIter);
+	  EVENT::CalorimeterHit *const pCalorimeterHit = (EVENT::CalorimeterHit*)(pPandoraCaloHit->GetParentCaloHitAddress());
 	  
-    for (EVENT::CalorimeterHitVec::const_iterator hitIter = calorimeterHitVec.begin(), hitIterEnd = calorimeterHitVec.end(); hitIter != hitIterEnd; ++hitIter) {
-      const EVENT::CalorimeterHit *pCalorimeterHit = *hitIter;
-	    
-      const float hitEnergy(pCalorimeterHit->getEnergy());
-      const CHT cht(pCalorimeterHit->getType());
-
-      if (cht.is(CHT::hcal)) {
-	float rho = FindHitDensityBin(hitEnergy);
-	float weight = p1*exp(p2*rho)+p3;
-	E_SC += hitEnergy*weight;	  
-      } else {
-	E_SC += hitEnergy;
-      }
+	  const float hitEnergy(pCalorimeterHit->getEnergy());
+	  const CHT cht(pCalorimeterHit->getType());
+	  
+	  const float cellsize = pPandoraCaloHit->GetCellSize0();
+	  
+	  if (cht.is(CHT::hcal)) {
+	    float rho = FindHitDensityBin(hitEnergy,cellsize);
+	    float weight = p1*exp(p2*rho)+p3;
+	    E_SC += hitEnergy*weight;	  
+	  } else {
+	    E_SC += hitEnergy;
+	  }
+	}//end of loop on calo hit list
     }
-  }
-
+  
   return E_SC;
 }
 
@@ -485,7 +493,7 @@ void PfoCreator::SetRecoParticlePropertiesFromPFO(const pandora::ParticleFlowObj
     pReconstructedParticle->setMomentum(momentum);
     pReconstructedParticle->setEnergy(pPandoraPfo->GetEnergy());
     if ( m_settings.m_applySoftwareCompensation && (pReconstructedParticle->getTracks().empty()) && (pReconstructedParticle->getType()!=22) )
-      pReconstructedParticle->setEnergy(SCEnergyCorrection(pReconstructedParticle));
+      pReconstructedParticle->setEnergy(SCEnergyCorrection(pPandoraPfo));
     pReconstructedParticle->setMass(pPandoraPfo->GetMass());
     pReconstructedParticle->setCharge(pPandoraPfo->GetCharge());
     pReconstructedParticle->setType(pPandoraPfo->GetParticleId());
